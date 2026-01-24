@@ -73,7 +73,7 @@ sed 's/PrivateKey = .*/PrivateKey = ****/; s/PresharedKey = .*/PresharedKey = **
 
 bashio::log.info "Bringing up WireGuard interface: client"
 
-# --- falls Interface von altem Run noch existiert: löschen ---
+# --- NEU: vorhandenes Interface wegräumen ---
 if ip link show client >/dev/null 2>&1; then
   bashio::log.warning "Interface 'client' already exists – deleting it first"
   ip link delete dev client || true
