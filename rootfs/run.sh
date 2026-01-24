@@ -35,7 +35,7 @@ if [ -z "$ENDPOINT" ] || [ "$ENDPOINT" = "null" ]; then
   exit 1
 fi
 
-# Default für AllowedIPs, falls leer
+# Default für AllowedIPs
 if [ -z "$ALLOWED_IPS" ] || [ "$ALLOWED_IPS" = "null" ]; then
   ALLOWED_IPS="0.0.0.0/0,::/0"
 fi
@@ -73,7 +73,13 @@ sed 's/PrivateKey = .*/PrivateKey = ****/; s/PresharedKey = .*/PresharedKey = **
 
 bashio::log.info "Bringing up WireGuard interface: client"
 
-# Interface anlegen & Config laden
+# --- falls Interface von altem Run noch existiert: löschen ---
+if ip link show client >/dev/null 2>&1; then
+  bashio::log.warning "Interface 'client' already exists – deleting it first"
+  ip link delete dev client || true
+fi
+
+# Interface anlegen & Config setzen
 ip link add dev client type wireguard
 wg setconf client "${WG_CONF}"
 ip -4 address add "${ADDRESS}" dev client
@@ -86,7 +92,7 @@ nameserver ${DNS}
 RESOLV
 fi
 
-# --- Status-Loop für Logs ---
+# --- Status-Loop: alle 30s Handshake & Traffic loggen ---
 (
   while true; do
     bashio::log.info "WireGuard status:"
