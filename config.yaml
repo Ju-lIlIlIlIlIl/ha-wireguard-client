@@ -11,14 +11,7 @@ arch:
 startup: services
 boot: auto
 
-# HA soll das Image aus dem Dockerfile lokal bauen
-image: "local/ha-wireguard-client-{arch}"
-
-# Welche Ordner in HA der Container sehen darf (erstmal konservativ)
-map:
-  - ssl:rw
-  - config:rw
-  - share:rw
+# WICHTIG: KEIN 'image:' MEHR → dann baut HA aus dem Dockerfile
 
 options:
   enabled: false
