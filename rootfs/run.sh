@@ -1,13 +1,11 @@
 #!/usr/bin/with-contenv bashio
-# WireGuard Client Add-on
-
 set -e
 
-CONFIG_PATH=/data/options.json
+WG_CONF="/etc/wireguard/client.conf"
 
 bashio::log.info "Starting WireGuard Client add-on"
 
-# --- Config aus HA-Options lesen ---
+# --- Optionen aus /data/options.json lesen ---
 PRIVATE_KEY=$(bashio::config 'private_key')
 ADDRESS=$(bashio::config 'address')
 DNS=$(bashio::config 'dns')
@@ -16,64 +14,86 @@ PRESHARED_KEY=$(bashio::config 'preshared_key')
 ENDPOINT=$(bashio::config 'endpoint')
 ALLOWED_IPS=$(bashio::config 'allowed_ips')
 
-# Minimal-Validierung
-if bashio::var.is_empty "${PRIVATE_KEY}"; then
-  bashio::log.error "private_key is empty – please fill in add-on options."
+# --- Pflichtfelder prüfen ---
+if [ -z "$PRIVATE_KEY" ] || [ "$PRIVATE_KEY" = "null" ]; then
+  bashio::log.error "private_key is empty or null – please configure the add-on!"
   exit 1
 fi
 
-if bashio::var.is_empty "${ADDRESS}"; then
-  bashio::log.error "address is empty – please fill in add-on options."
+if [ -z "$ADDRESS" ] || [ "$ADDRESS" = "null" ]; then
+  bashio::log.error "address is empty or null – please configure the add-on!"
   exit 1
 fi
 
-if bashio::var.is_empty "${PUBLIC_KEY}"; then
-  bashio::log.error "public_key is empty – please fill in add-on options."
+if [ -z "$PUBLIC_KEY" ] || [ "$PUBLIC_KEY" = "null" ]; then
+  bashio::log.error "public_key is empty or null – please configure the add-on!"
   exit 1
 fi
 
-if bashio::var.is_empty "${ENDPOINT}"; then
-  bashio::log.error "endpoint is empty – please fill in add-on options."
+if [ -z "$ENDPOINT" ] || [ "$ENDPOINT" = "null" ]; then
+  bashio::log.error "endpoint is empty or null – please configure the add-on!"
   exit 1
 fi
 
-if bashio::var.is_empty "${ALLOWED_IPS}"; then
-  ALLOWED_IPS="0.0.0.0/0"
-  bashio::log.info "allowed_ips not set – defaulting to ${ALLOWED_IPS}"
+# Default für AllowedIPs, falls leer
+if [ -z "$ALLOWED_IPS" ] || [ "$ALLOWED_IPS" = "null" ]; then
+  ALLOWED_IPS="0.0.0.0/0,::/0"
 fi
 
-bashio::log.info "Generating WireGuard config at /etc/wireguard/client.conf"
+bashio::log.info "Generating WireGuard config at ${WG_CONF}"
 
 # --- client.conf schreiben ---
-CONFIG_FILE="/etc/wireguard/client.conf"
+cat > "${WG_CONF}" <<EOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+Address = ${ADDRESS}
+EOF
 
-{
-  echo "[Interface]"
-  echo "PrivateKey = ${PRIVATE_KEY}"
-  echo "Address = ${ADDRESS}"
-  # DNS NUR schreiben, wenn gesetzt → vermeidet resolvconf-Probleme
-  if ! bashio::var.is_empty "${DNS}"; then
-    echo "DNS = ${DNS}"
-  fi
-  echo ""
-  echo "[Peer]"
-  echo "PublicKey = ${PUBLIC_KEY}"
-  if ! bashio::var.is_empty "${PRESHARED_KEY}"; then
-    echo "PresharedKey = ${PRESHARED_KEY}"
-  fi
-  echo "AllowedIPs = ${ALLOWED_IPS}"
-  echo "PersistentKeepalive = 25"
-  echo "Endpoint = ${ENDPOINT}"
-} > "${CONFIG_FILE}"
+# DNS nur, wenn gesetzt
+if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
+  echo "DNS = ${DNS}" >> "${WG_CONF}"
+fi
+
+cat >> "${WG_CONF}" <<EOF
+
+[Peer]
+PublicKey = ${PUBLIC_KEY}
+AllowedIPs = ${ALLOWED_IPS}
+Endpoint = ${ENDPOINT}
+PersistentKeepalive = 25
+EOF
+
+# PresharedKey nur, wenn gesetzt
+if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
+  sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF}"
+fi
+
+bashio::log.info "Resulting WireGuard config:"
+sed 's/PrivateKey = .*/PrivateKey = ****/; s/PresharedKey = .*/PresharedKey = ****/' "${WG_CONF}"
 
 bashio::log.info "Bringing up WireGuard interface: client"
-wg-quick up client
 
-bashio::log.info "WireGuard client started successfully."
+# Interface anlegen & Config laden
+ip link add dev client type wireguard
+wg setconf client "${WG_CONF}"
+ip -4 address add "${ADDRESS}" dev client
+ip link set mtu 1420 up dev client
 
-# --- einfacher Status-Loop für Logs ---
-while true; do
-  bashio::log.info "WireGuard status:"
-  wg show client || bashio::log.warning "wg show client failed"
-  sleep 30
-done
+# DNS nur, wenn gesetzt
+if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
+  resolvconf -a client -m 0 -x <<RESOLV
+nameserver ${DNS}
+RESOLV
+fi
+
+# --- Status-Loop für Logs ---
+(
+  while true; do
+    bashio::log.info "WireGuard status:"
+    wg show client || bashio::log.warning "wg show client failed"
+    sleep 30
+  done
+) &
+
+# Container am Leben halten
+tail -f /dev/null

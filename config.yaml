@@ -1,12 +1,13 @@
-name: "WireGuard Client"
-version: "0.0.4"
-slug: "wireguard_client"
-description: "Simple WireGuard client that connects Home Assistant to a remote WireGuard server."
+name: WireGuard Client
+slug: wireguard_client
+version: 0.0.5
+description: Simple WireGuard client that connects Home Assistant to a remote WireGuard server.
 arch:
   - amd64
   - aarch64
+  - armv7
+
 startup: services
-boot: auto
 init: false
 host_network: true
 
@@ -17,35 +18,20 @@ privileged:
 devices:
   - /dev/net/tun
 
-map:
-  - ssl:rw
-
 options:
-  enabled: false
-
-  # Interface (Client-Seite / HA-Seite)
-  interface_name: "client"            # wird zu [Interface] Name der wg-Config-Datei: client.conf
-  private_key: ""                     # Client PrivateKey
-  address: "10.8.0.4/24"              # z.B. 10.8.0.4/24
-  dns: "1.1.1.1"                      # optional: 1.1.1.1 oder mehrere durch Komma
-
-  # Peer (dein wg-easy / Oracle-Server)
-  peer_public_key: ""                 # PublicKey vom Server (wg-easy)
-  peer_preshared_key: ""              # optional: PresharedKey
-  peer_endpoint: "158.180.23.24:51820"  # IP:Port deines Servers
-  peer_allowed_ips: "0.0.0.0/0,::/0"  # Oder z.B. 10.8.0.0/24
-  peer_persistent_keepalive: 25       # Sekunden
+  private_key: ""
+  address: ""
+  dns: ""
+  public_key: ""
+  preshared_key: ""
+  endpoint: ""
+  allowed_ips: ""
 
 schema:
-  enabled: bool
-
-  interface_name: str
   private_key: str
   address: str
-  dns: str
-
-  peer_public_key: str
-  peer_preshared_key: str
-  peer_endpoint: str
-  peer_allowed_ips: str
-  peer_persistent_keepalive: int
+  dns: str?
+  public_key: str
+  preshared_key: str?
+  endpoint: str
+  allowed_ips: str?
