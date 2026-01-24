@@ -1,62 +1,79 @@
 #!/usr/bin/with-contenv bashio
+# WireGuard Client Add-on
+
 set -e
+
+CONFIG_PATH=/data/options.json
 
 bashio::log.info "Starting WireGuard Client add-on"
 
-ENABLED=$(bashio::config 'enabled')
-if ! bashio::var.true "${ENABLED}"; then
-    bashio::log.info "Add-on is disabled via configuration. Exiting."
-    exit 0
-fi
-
-INTERFACE_NAME=$(bashio::config 'interface_name')
+# --- Config aus HA-Options lesen ---
 PRIVATE_KEY=$(bashio::config 'private_key')
 ADDRESS=$(bashio::config 'address')
 DNS=$(bashio::config 'dns')
+PUBLIC_KEY=$(bashio::config 'public_key')
+PRESHARED_KEY=$(bashio::config 'preshared_key')
+ENDPOINT=$(bashio::config 'endpoint')
+ALLOWED_IPS=$(bashio::config 'allowed_ips')
 
-PEER_PUBLIC_KEY=$(bashio::config 'peer_public_key')
-PEER_PRESHARED_KEY=$(bashio::config 'peer_preshared_key')
-PEER_ENDPOINT=$(bashio::config 'peer_endpoint')
-PEER_ALLOWED_IPS=$(bashio::config 'peer_allowed_ips')
-PEER_PERSISTENT_KEEPALIVE=$(bashio::config 'peer_persistent_keepalive')
-
-# Minimal-Checks
-if [ -z "${PRIVATE_KEY}" ] || [ -z "${ADDRESS}" ] || [ -z "${PEER_PUBLIC_KEY}" ] || [ -z "${PEER_ENDPOINT}" ]; then
-    bashio::log.error "Missing required configuration values (private_key, address, peer_public_key, peer_endpoint)."
-    exit 1
+# Minimal-Validierung
+if bashio::var.is_empty "${PRIVATE_KEY}"; then
+  bashio::log.error "private_key is empty – please fill in add-on options."
+  exit 1
 fi
 
-CONFIG_PATH="/etc/wireguard/${INTERFACE_NAME}.conf"
-mkdir -p /etc/wireguard
+if bashio::var.is_empty "${ADDRESS}"; then
+  bashio::log.error "address is empty – please fill in add-on options."
+  exit 1
+fi
 
-bashio::log.info "Generating WireGuard config at ${CONFIG_PATH}"
+if bashio::var.is_empty "${PUBLIC_KEY}"; then
+  bashio::log.error "public_key is empty – please fill in add-on options."
+  exit 1
+fi
 
-cat > "${CONFIG_PATH}" <<EOF
-[Interface]
-PrivateKey = ${PRIVATE_KEY}
-Address = ${ADDRESS}
-DNS = ${DNS}
+if bashio::var.is_empty "${ENDPOINT}"; then
+  bashio::log.error "endpoint is empty – please fill in add-on options."
+  exit 1
+fi
 
-[Peer]
-PublicKey = ${PEER_PUBLIC_KEY}
-PresharedKey = ${PEER_PRESHARED_KEY}
-AllowedIPs = ${PEER_ALLOWED_IPS}
-PersistentKeepalive = ${PEER_PERSISTENT_KEEPALIVE}
-Endpoint = ${PEER_ENDPOINT}
-EOF
+if bashio::var.is_empty "${ALLOWED_IPS}"; then
+  ALLOWED_IPS="0.0.0.0/0"
+  bashio::log.info "allowed_ips not set – defaulting to ${ALLOWED_IPS}"
+fi
 
-bashio::log.info "Bringing up WireGuard interface: ${INTERFACE_NAME}"
-wg-quick up "${CONFIG_PATH}"
+bashio::log.info "Generating WireGuard config at /etc/wireguard/client.conf"
 
-finish() {
-    bashio::log.info "Stopping WireGuard interface: ${INTERFACE_NAME}"
-    wg-quick down "${CONFIG_PATH}" || true
-    exit 0
-}
+# --- client.conf schreiben ---
+CONFIG_FILE="/etc/wireguard/client.conf"
 
-trap finish SIGTERM SIGHUP
+{
+  echo "[Interface]"
+  echo "PrivateKey = ${PRIVATE_KEY}"
+  echo "Address = ${ADDRESS}"
+  # DNS NUR schreiben, wenn gesetzt → vermeidet resolvconf-Probleme
+  if ! bashio::var.is_empty "${DNS}"; then
+    echo "DNS = ${DNS}"
+  fi
+  echo ""
+  echo "[Peer]"
+  echo "PublicKey = ${PUBLIC_KEY}"
+  if ! bashio::var.is_empty "${PRESHARED_KEY}"; then
+    echo "PresharedKey = ${PRESHARED_KEY}"
+  fi
+  echo "AllowedIPs = ${ALLOWED_IPS}"
+  echo "PersistentKeepalive = 25"
+  echo "Endpoint = ${ENDPOINT}"
+} > "${CONFIG_FILE}"
 
-# Add-on am Leben halten
+bashio::log.info "Bringing up WireGuard interface: client"
+wg-quick up client
+
+bashio::log.info "WireGuard client started successfully."
+
+# --- einfacher Status-Loop für Logs ---
 while true; do
-    sleep 60
+  bashio::log.info "WireGuard status:"
+  wg show client || bashio::log.warning "wg show client failed"
+  sleep 30
 done
