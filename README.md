@@ -27,9 +27,7 @@ This add-on allows Home Assistant to **connect as a WireGuard client** to an exi
 
 Click the button below:
 
-[![Add Add-on Repository to Home Assistant](https://my.home-assistant.io/badges/addon_repository.svg)](
-https://my.home-assistant.io/redirect/supervisor_addon/?repository_url=https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client-addon
-)
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FJu-lIlIlIlIlIl%2Fha-wireguard-client)
 
 Or manually:
 
@@ -37,7 +35,7 @@ Or manually:
 2. Click the **three dots (⋮)** in the top right
 3. Select **Repositories**
 4. Add this URL:
-https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client-addon
+https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client
 
 
 ---
@@ -137,7 +135,7 @@ Planned features:
 
 💬 Support & Development
 GitHub Repository:
-👉 https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client-addon
+👉 https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client
 
 Issues & feature requests welcome.
 
