@@ -68,6 +68,7 @@ PresharedKey = <PRESHARED_KEY>
 Endpoint = your-server.example.com:51820
 AllowedIPs = 10.10.0.0/24, 192.168.178.0/24
 PersistentKeepalive = 25
+```
 Add-on Options
 Paste the entire configuration into the add-on option:
 
@@ -154,24 +155,3 @@ secure access without touching customer routers
 
 License: MIT
 Status: Experimental
-
-
----
-
-## 🔥 Nächster sinnvoller Schritt (Empfehlung)
-
-Wenn du willst, machen wir als Nächstes:
-
-1. ✅ **Version 0.1.0**
-   - Status-Check (`wg show`)
-   - Log-Ausgabe als Healthcheck
-2. 📡 Sensor `sensor.wireguard_client_connected`
-3. 📂 Datei-Upload statt Textfeld
-4. 🧱 Vorbereitung für **HACS-Integration** (optional)
-
-Sag mir einfach:
-👉 **„Nächster Schritt: Statussensor“**  
-oder  
-👉 **„Nächster Schritt: File Upload UI“**
-
-Du bist gerade extrem nah an einem **richtig starken Profi-Addon** 💪
