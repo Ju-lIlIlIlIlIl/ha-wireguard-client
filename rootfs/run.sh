@@ -2,6 +2,7 @@
 set -e
 
 WG_CONF="/etc/wireguard/client.conf"
+WG_CONF_WG="/etc/wireguard/client.wg"
 
 bashio::log.info "Starting WireGuard Client add-on"
 
@@ -42,7 +43,7 @@ fi
 
 bashio::log.info "Generating WireGuard config at ${WG_CONF}"
 
-# --- client.conf schreiben ---
+# --- Volle Config (wg-quick-Style) für Logging / Debug ---
 cat > "${WG_CONF}" <<EOF
 [Interface]
 PrivateKey = ${PRIVATE_KEY}
@@ -68,31 +69,52 @@ if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
   sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF}"
 fi
 
-bashio::log.info "Resulting WireGuard config:"
+bashio::log.info "Resulting WireGuard config (for debugging):"
 sed 's/PrivateKey = .*/PrivateKey = ****/; s/PresharedKey = .*/PresharedKey = ****/' "${WG_CONF}"
+
+# --- Gestripte Config NUR für wg setconf (ohne Address/DNS) ---
+cat > "${WG_CONF_WG}" <<EOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+
+[Peer]
+PublicKey = ${PUBLIC_KEY}
+AllowedIPs = ${ALLOWED_IPS}
+Endpoint = ${ENDPOINT}
+PersistentKeepalive = 25
+EOF
+
+if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
+  sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF_WG}"
+fi
 
 bashio::log.info "Bringing up WireGuard interface: client"
 
-# --- NEU: vorhandenes Interface wegräumen ---
+# Falls Interface noch existiert → wegräumen
 if ip link show client >/dev/null 2>&1; then
   bashio::log.warning "Interface 'client' already exists – deleting it first"
   ip link delete dev client || true
 fi
 
-# Interface anlegen & Config setzen
+# Interface anlegen & Konfig anwenden
 ip link add dev client type wireguard
-wg setconf client "${WG_CONF}"
+wg setconf client "${WG_CONF_WG}"
+
+# IP-Adresse setzen (das ist der Teil, den wg-quick sonst machen würde)
 ip -4 address add "${ADDRESS}" dev client
 ip link set mtu 1420 up dev client
 
-# DNS nur, wenn gesetzt
+# DNS über resolvconf (wenn gesetzt) – Fehler nur loggen, nicht abbrechen
 if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
-  resolvconf -a client -m 0 -x <<RESOLV
+  if ! resolvconf -a client -m 0 -x <<RESOLV
 nameserver ${DNS}
 RESOLV
+  then
+    bashio::log.warning "Failed to update resolvconf for client interface"
+  fi
 fi
 
-# --- Status-Loop: alle 30s Handshake & Traffic loggen ---
+# --- Status-Loop: alle 30s Status loggen ---
 (
   while true; do
     bashio::log.info "WireGuard status:"
