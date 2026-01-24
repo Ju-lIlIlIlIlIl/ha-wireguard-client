@@ -1,34 +1,29 @@
-name: "WireGuard Client (EasyConfig)"
-slug: "wireguard_client_easy"
-description: "Einfacher WireGuard-Client für Home Assistant, der eine fertige wg0.conf vom zentralen WG-Server nutzt."
-version: "0.1.0"
-url: "https://github.com/dein-github/ha-wireguard-client"  # später anpassen
+name: WireGuard Client
+slug: wireguard_client
+description: "Simple WireGuard client that connects Home Assistant to a remote WireGuard server."
+version: "0.0.1"
+stage: experimental
+
 arch:
   - amd64
   - aarch64
-  - armv7
 
 startup: services
 boot: auto
-host_network: true
 
-ingress: true
-ingress_port: 8099
-panel_icon: "mdi:vpn"
-panel_title: "WireGuard Client"
+# HA soll das Image aus dem Dockerfile lokal bauen
+image: "local/ha-wireguard-client-{arch}"
 
-# Wir brauchen direkten Zugriff auf das Netzwerk & TUN
-privileged:
-  - NET_ADMIN
-  - SYS_MODULE
-
-devices:
-  - /dev/net/tun
-
-# /data wird benutzt für wg0.conf
+# Welche Ordner in HA der Container sehen darf (erstmal konservativ)
 map:
-  - data:rw
+  - ssl:rw
+  - config:rw
+  - share:rw
 
-# Kein Options-Schema am Anfang – alles läuft über die hochgeladene Config
-options: {}
-schema: {}
+options:
+  enabled: false
+  config_file: /ssl/wireguard/client.conf
+
+schema:
+  enabled: bool
+  config_file: str

@@ -1,5 +1,5 @@
 {
-  "name": "Julian WireGuard Client Add-on",
-  "url": "https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client-addon",
-  "maintainer": "Julian Zabel"
+  "name": "WireGuard Client Add-on",
+  "url": "https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client",
+  "maintainer": "Julian Zabel <julianzabel34@gmail.com>"
 }
