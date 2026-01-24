@@ -1,5 +1,5 @@
 name: "WireGuard Client"
-version: "0.0.2"
+version: "0.0.3"
 slug: "wireguard_client"
 description: "Simple WireGuard client that connects Home Assistant to a remote WireGuard server."
 arch:
