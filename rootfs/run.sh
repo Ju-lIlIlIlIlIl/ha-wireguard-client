@@ -9,34 +9,48 @@ if ! bashio::var.true "${ENABLED}"; then
     exit 0
 fi
 
-CONFIG_FILE=$(bashio::config 'config_file')
-CONFIG_CONTENT=$(bashio::config 'config_content')
+INTERFACE_NAME=$(bashio::config 'interface_name')
+PRIVATE_KEY=$(bashio::config 'private_key')
+ADDRESS=$(bashio::config 'address')
+DNS=$(bashio::config 'dns')
 
-# Wenn config_content gesetzt ist, daraus eine Datei bauen
-if [ -n "${CONFIG_CONTENT}" ]; then
-    bashio::log.info "config_content found – writing WireGuard config to /etc/wireguard/client.conf"
-    mkdir -p /etc/wireguard
-    # Wichtig: Inhalt 1:1 übernehmen
-    printf "%s\n" "${CONFIG_CONTENT}" > /etc/wireguard/client.conf
-    CONFIG_FILE="/etc/wireguard/client.conf"
-fi
+PEER_PUBLIC_KEY=$(bashio::config 'peer_public_key')
+PEER_PRESHARED_KEY=$(bashio::config 'peer_preshared_key')
+PEER_ENDPOINT=$(bashio::config 'peer_endpoint')
+PEER_ALLOWED_IPS=$(bashio::config 'peer_allowed_ips')
+PEER_PERSISTENT_KEEPALIVE=$(bashio::config 'peer_persistent_keepalive')
 
-if [ -z "${CONFIG_FILE}" ]; then
-    bashio::log.error "No config_file or config_content configured. Please set one of them in the add-on options."
+# Minimal-Checks
+if [ -z "${PRIVATE_KEY}" ] || [ -z "${ADDRESS}" ] || [ -z "${PEER_PUBLIC_KEY}" ] || [ -z "${PEER_ENDPOINT}" ]; then
+    bashio::log.error "Missing required configuration values (private_key, address, peer_public_key, peer_endpoint)."
     exit 1
 fi
 
-if [ ! -f "${CONFIG_FILE}" ]; then
-    bashio::log.error "Config file '${CONFIG_FILE}' not found."
-    exit 1
-fi
+CONFIG_PATH="/etc/wireguard/${INTERFACE_NAME}.conf"
+mkdir -p /etc/wireguard
 
-bashio::log.info "Bringing up WireGuard using config: ${CONFIG_FILE}"
-wg-quick up "${CONFIG_FILE}"
+bashio::log.info "Generating WireGuard config at ${CONFIG_PATH}"
+
+cat > "${CONFIG_PATH}" <<EOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+Address = ${ADDRESS}
+DNS = ${DNS}
+
+[Peer]
+PublicKey = ${PEER_PUBLIC_KEY}
+PresharedKey = ${PEER_PRESHARED_KEY}
+AllowedIPs = ${PEER_ALLOWED_IPS}
+PersistentKeepalive = ${PEER_PERSISTENT_KEEPALIVE}
+Endpoint = ${PEER_ENDPOINT}
+EOF
+
+bashio::log.info "Bringing up WireGuard interface: ${INTERFACE_NAME}"
+wg-quick up "${CONFIG_PATH}"
 
 finish() {
-    bashio::log.info "Stopping WireGuard"
-    wg-quick down "${CONFIG_FILE}" || true
+    bashio::log.info "Stopping WireGuard interface: ${INTERFACE_NAME}"
+    wg-quick down "${CONFIG_PATH}" || true
     exit 0
 }
 

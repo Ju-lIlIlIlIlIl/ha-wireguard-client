@@ -9,21 +9,39 @@ startup: services
 boot: auto
 init: false
 
-# Wir brauchen Network-Privilegien für WireGuard
 privileged:
   - NET_ADMIN
   - SYS_MODULE
 
-# /ssl wird gemountet, falls du weiterhin mit Dateipfad arbeiten willst
 map:
   - ssl:rw
 
 options:
   enabled: false
-  config_file: "/ssl/wireguard/client.conf"
-  config_content: ""
+
+  # Interface (Client-Seite / HA-Seite)
+  interface_name: "client"            # wird zu [Interface] Name der wg-Config-Datei: client.conf
+  private_key: ""                     # Client PrivateKey
+  address: "10.8.0.4/24"              # z.B. 10.8.0.4/24
+  dns: "1.1.1.1"                      # optional: 1.1.1.1 oder mehrere durch Komma
+
+  # Peer (dein wg-easy / Oracle-Server)
+  peer_public_key: ""                 # PublicKey vom Server (wg-easy)
+  peer_preshared_key: ""              # optional: PresharedKey
+  peer_endpoint: "158.180.23.24:51820"  # IP:Port deines Servers
+  peer_allowed_ips: "0.0.0.0/0,::/0"  # Oder z.B. 10.8.0.0/24
+  peer_persistent_keepalive: 25       # Sekunden
 
 schema:
   enabled: bool
-  config_file: str
-  config_content: str
+
+  interface_name: str
+  private_key: str
+  address: str
+  dns: str
+
+  peer_public_key: str
+  peer_preshared_key: str
+  peer_endpoint: str
+  peer_allowed_ips: str
+  peer_persistent_keepalive: int
