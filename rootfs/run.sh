@@ -1,26 +1,25 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/with-contenv bashio
+# Einfacher WireGuard-Client für Home Assistant
+
 set -e
 
-echo "[WG-CLIENT] Starte WireGuard Client Add-on..."
+CONFIG_FILE=$(bashio::config 'config_file')
+ENABLED=$(bashio::config 'enabled')
 
-# Sicherstellen, dass /data existiert
-mkdir -p /data
-
-# Falls schon eine wg0.conf existiert: versuchen, Tunnel zu starten
-if [ -f /data/wg0.conf ]; then
-  echo "[WG-CLIENT] Gefundene Config: /data/wg0.conf – versuche Tunnel zu starten..."
-  # Ignoriere Fehler bei 'down' (falls wg0 noch nicht existiert)
-  wg-quick down wg0 2>/dev/null || true
-  if wg-quick up /data/wg0.conf; then
-    echo "[WG-CLIENT] WireGuard Tunnel wg0 gestartet."
-  else
-    echo "[WG-CLIENT] FEHLER: Konnte wg0 mit /data/wg0.conf nicht starten."
-  fi
-else
-  echo "[WG-CLIENT] Noch keine /data/wg0.conf gefunden. Bitte im Web-UI hochladen."
+if [ "$ENABLED" != "true" ]; then
+  bashio::log.info "WireGuard client disabled (enabled=false). Exiting."
+  exit 0
 fi
 
-echo "[WG-CLIENT] Starte Web-UI (Flask)..."
+if [ ! -f "$CONFIG_FILE" ]; then
+  bashio::log.error "Config file $CONFIG_FILE not found."
+  exit 1
+fi
 
-# Flask Webserver starten (blockierend)
-exec python3 /app/server.py
+bashio::log.info "Starting WireGuard with config: ${CONFIG_FILE}"
+
+# WireGuard-Interface starten
+wg-quick up "$CONFIG_FILE"
+
+bashio::log.info "WireGuard client started. Keeping container alive."
+tail -f /dev/null

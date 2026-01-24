@@ -11,8 +11,6 @@ arch:
 startup: services
 boot: auto
 
-# WICHTIG: KEIN 'image:' MEHR → dann baut HA aus dem Dockerfile
-
 options:
   enabled: false
   config_file: /ssl/wireguard/client.conf

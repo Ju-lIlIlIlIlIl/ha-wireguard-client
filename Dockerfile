@@ -1,27 +1,18 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.19
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
 FROM ${BUILD_FROM}
 
-# Labels (optional, aber nice)
-LABEL \
-  io.hass.name="WireGuard Client (EasyConfig)" \
-  io.hass.description="Einfacher WireGuard-Client für Home Assistant" \
-  io.hass.version="0.1.0" \
-  io.hass.type="addon" \
-  io.hass.arch="amd64|aarch64|armv7"
+ARG BUILD_ARCH
+ARG BUILD_VERSION
 
-# Pakete installieren: WireGuard Tools + Python + pip
+# WireGuard-Tools installieren
 RUN apk add --no-cache \
     wireguard-tools \
-    python3 \
-    py3-pip
-
-# Flask installieren
-RUN pip3 install --no-cache-dir flask
+    iproute2
 
 # rootfs in Container kopieren
 COPY rootfs /
 
-# Sicherstellen, dass run.sh ausführbar ist
+# run.sh ausführbar machen
 RUN chmod +x /run.sh
 
 # Start-Skript
