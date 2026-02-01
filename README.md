@@ -63,12 +63,13 @@ AllowedIPs = 10.10.0.0/24, 192.168.178.0/24
 PersistentKeepalive = 25
 ```
 
-Add-on Options
+# Add-on Options
+
 Paste the entire configuration into the add-on option:
 
 <img width="1092" height="760" alt="image" src="https://github.com/user-attachments/assets/c1e82f05-ab21-45f7-9168-e61be8887bd5" />
 
-or edit in YAMEL
+or edit in YAML
 
 ```ini
 private_key: ""
