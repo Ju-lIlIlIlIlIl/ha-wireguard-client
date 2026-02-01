@@ -15,7 +15,8 @@ PUBLIC_KEY=$(bashio::config 'public_key')
 PRESHARED_KEY=$(bashio::config 'preshared_key')
 ENDPOINT=$(bashio::config 'endpoint')
 ALLOWED_IPS=$(bashio::config 'allowed_ips')
-PERSISTENT_KEEPALIVE=$(bashio::config 'persistent_keepalive')
+PERSISTENT_KEEPALIVE="$(jq -r '.persistent_keepalive // empty' /data/options.json)"
+
 
 # --- Konfig prüfen ---
 if [ -z "$PRIVATE_KEY" ] || [ -z "$ADDRESS" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$ENDPOINT" ]; then
@@ -28,7 +29,7 @@ if [ -z "$ALLOWED_IPS" ]; then
   ALLOWED_IPS="0.0.0.0/0"
 fi
 
-if [ -z "$PERSISTENT_KEEPALIVE" ]; then
+if [ -z "$PERSISTENT_KEEPALIVE" ] || [ "$PERSISTENT_KEEPALIVE" = "null" ]; then
   PERSISTENT_KEEPALIVE="25"
 fi
 
