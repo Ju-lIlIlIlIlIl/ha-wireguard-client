@@ -6,16 +6,19 @@
 ![Supports armhf](https://img.shields.io/badge/armhf-yes-green.svg)
 
 A simple **WireGuard client add-on for Home Assistant**.  
-This add-on allows Home Assistant to **connect as a WireGuard client** to an existing WireGuard server (e.g. wg-easy, Fritz!Box, VPS).
+This add-on allows Home Assistant to **connect as a WireGuard client** to an existing WireGuard server  
+(e.g. wg-easy, Fritz!Box, VPS).
 
 ---
 
 ## ✨ Features
 
 - 🔐 Home Assistant acts as **WireGuard client**
-- 📄 Upload or paste a full `wg.conf`
+- 📄 Paste a full `wg.conf` directly into the add-on configuration
+- 👁 Private keys are **hidden** in the UI (password field with visibility toggle)
 - 🚀 Automatic tunnel start on add-on startup
 - ♻️ Reconnects after reboot
+- 📊 Detailed **connection status in logs** (handshake, traffic, endpoint)
 - 🧠 Designed for **remote maintenance & customer setups**
 - 🧩 No Proxmox, no router VPN required
 
@@ -25,32 +28,24 @@ This add-on allows Home Assistant to **connect as a WireGuard client** to an exi
 
 ### 1️⃣ Add the repository to Home Assistant
 
-Click the button below:
-
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FJu-lIlIlIlIlIl%2Fha-wireguard-client)
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](
+https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FJu-lIlIlIlIlIl%2Fha-wireguard-client
+)
 
 Or manually:
 
 1. Go to **Settings → Add-ons → Add-on Store**
 2. Click the **three dots (⋮)** in the top right
 3. Select **Repositories**
-4. Add this URL:
+4. Add:
 https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client
 
 
 ---
 
-### 2️⃣ Install the Add-on
-
-1. Find **WireGuard Client** in the Add-on Store
-2. Click **Install**
-3. Wait until installation is finished
-
----
-
 ## ⚙️ Configuration
 
-This add-on requires a **complete WireGuard client configuration** (`wg.conf`).
+This add-on requires a **WireGuard client configuration**.
 
 ### Example `wg.conf`
 
@@ -66,7 +61,6 @@ PresharedKey = <PRESHARED_KEY>
 Endpoint = your-server.example.com:51820
 AllowedIPs = 10.10.0.0/24, 192.168.178.0/24
 PersistentKeepalive = 25
-```
 Add-on Options
 Paste the entire configuration into the add-on option:
 
@@ -74,74 +68,78 @@ wg_config: |
   [Interface]
   PrivateKey = ...
   Address = ...
-  
+
   [Peer]
   PublicKey = ...
   Endpoint = ...
-Save the configuration.
+Then Save and Start the add-on.
 
-▶️ Start the Add-on
-Click Start
+📊 Connection Status & Logs
+The add-on continuously logs the WireGuard status.
 
-Open the Logs
+Example log output:
 
-You should see:
+[INFO] WireGuard status:
+peer: SpMSY1vwHVVeodmmuVM8p8XYOd/SRkxqTsongkfUBEY=
+  endpoint: 158.180.23.24:51820
+  latest handshake: 10 seconds ago
+  transfer: 715.79 KiB received, 7.49 MiB sent
+How to interpret this:
+latest handshake → last successful connection to the server
 
-[INFO] WireGuard up
-If successful, Home Assistant is now connected to your WireGuard server.
+If the handshake updates regularly → connection is active
+
+No handshake → tunnel is down
+
+➡️ Logs are the authoritative source of truth for WireGuard state.
 
 🔎 Verification
-From your WireGuard server, you should see the HA peer connected:
+From the WireGuard server:
 
 wg show
-You should now be able to:
+You should see the Home Assistant peer connected.
+
+You can now:
 
 Access Home Assistant remotely
 
-Reach HA local IPs via VPN
+Reach HA services via VPN IP
 
 Perform maintenance without router VPNs
 
 🔁 Updates
 When a new version is released:
 
-Open the Add-on page
+Open the add-on page
 
 Click Update
 
 Restart the add-on
 
 ⚠️ Notes
-This add-on runs WireGuard as client only
+This add-on runs WireGuard client only
 
 Routing depends on AllowedIPs
 
-Make sure IP ranges do not overlap with the remote network
+Make sure VPN IP ranges do not overlap
 
-Requires WireGuard support in the HA OS (already included in HA OS)
+WireGuard kernel support is already included in HA OS
 
 🛠 Roadmap
-Planned features:
+Planned / possible improvements:
 
-📂 Upload .conf file via UI
+📊 WireGuard status sensors inside Home Assistant
 
-📊 Connection status sensor
+🔔 Notifications on disconnect
 
-🔄 Auto-reconnect watchdog
+🔄 Connection watchdog
 
-🔔 HA notifications on disconnect
+📂 File upload for .conf (UI limitation dependent)
 
-🧑‍💼 Multi-customer profiles
+🧑‍💼 Why this Add-on?
+Most WireGuard solutions assume Home Assistant is the server.
 
-💬 Support & Development
-GitHub Repository:
-👉 https://github.com/Ju-lIlIlIlIlIl/ha-wireguard-client
-
-Issues & feature requests welcome.
-
-🧠 Why this Add-on?
-Most WireGuard solutions for Home Assistant assume HA is the server.
-This add-on solves the real-world problem of making HA a managed VPN client for:
+This add-on solves the real-world problem of making Home Assistant a managed VPN client for:
 
 customer installations
 
