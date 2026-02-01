@@ -142,7 +142,7 @@ sensor:
     scan_interval: 30
 ```
 
-# ➡️ Logs are the authoritative source of truth for WireGuard state.
+➡️ Logs are the authoritative source of truth for WireGuard state.
 
 ## 🔎 Verification
 From the WireGuard server:
