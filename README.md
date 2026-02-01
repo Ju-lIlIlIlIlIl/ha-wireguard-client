@@ -148,6 +148,7 @@ sensor:
 From the WireGuard server:
 
 wg show
+
 You should see the Home Assistant peer connected.
 
 # You can now:
@@ -188,4 +189,5 @@ This add-on solves the real-world problem of making Home Assistant a managed VPN
 - secure access without touching customer routers
 
 License: MIT
+
 Status: Experimental
