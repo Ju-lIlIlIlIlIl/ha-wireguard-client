@@ -3,6 +3,7 @@ set -e
 
 WG_CONF="/etc/wireguard/client.conf"
 WG_CONF_WG="/etc/wireguard/client.wg"
+WG_INTERFACE="client"
 
 bashio::log.info "Starting WireGuard Client add-on"
 
@@ -50,7 +51,7 @@ PrivateKey = ${PRIVATE_KEY}
 Address = ${ADDRESS}
 EOF
 
-# DNS nur, wenn gesetzt
+# DNS nur, wenn gesetzt (nur für Debug-Ausgabe, nicht für wg setconf)
 if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
   echo "DNS = ${DNS}" >> "${WG_CONF}"
 fi
@@ -88,66 +89,30 @@ if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
   sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF_WG}"
 fi
 
-bashio::log.info "Bringing up WireGuard interface: client"
+bashio::log.info "Bringing up WireGuard interface: ${WG_INTERFACE}"
 
 # Falls Interface noch existiert → wegräumen
-if ip link show client >/dev/null 2>&1; then
-  bashio::log.warning "Interface 'client' already exists – deleting it first"
-  ip link delete dev client || true
+if ip link show "${WG_INTERFACE}" >/dev/null 2>&1; then
+  bashio::log.warning "Interface '${WG_INTERFACE}' already exists – deleting it first"
+  ip link delete dev "${WG_INTERFACE}" || true
 fi
 
 # Interface anlegen & Konfig anwenden
-ip link add dev client type wireguard
-wg setconf client "${WG_CONF_WG}"
+ip link add dev "${WG_INTERFACE}" type wireguard
+wg setconf "${WG_INTERFACE}" "${WG_CONF_WG}"
 
 # IP-Adresse setzen (das ist der Teil, den wg-quick sonst machen würde)
-ip -4 address add "${ADDRESS}" dev client
-ip link set mtu 1420 up dev client
+ip -4 address add "${ADDRESS}" dev "${WG_INTERFACE}"
+ip link set mtu 1420 up dev "${WG_INTERFACE}"
 
-# DNS über resolvconf (wenn gesetzt) – Fehler nur loggen, nicht abbrechen
-if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
-  if ! resolvconf -a client -m 0 -x <<RESOLV
-nameserver ${DNS}
-RESOLV
-  then
-    bashio::log.warning "Failed to update resolvconf for client interface"
-  fi
-fi
+bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
 
-# --- Status-Loop: alle 30s in Log + JSON schreiben ---
-STATUS_FILE="/data/wireguard_client_status.json"
-
-# Make sure directory exists (it does on HA, but be safe)
-mkdir -p "$(dirname "$STATUS_FILE")"
-
-echo "[INFO] Starting WireGuard status monitor ..."
+# --- Einfacher Status-Loop: nur ins Log schreiben, KEINE Dateien/Sensoren ---
+bashio::log.info "[INFO] Starting WireGuard status monitor (log only, every 30s) ..."
 while true; do
-  # Read wg status; if wg fails, don't crash the add-on
-  if wg show client > /tmp/wg_status.txt 2>/dev/null; then
-    LATEST_HANDSHAKE="$(grep 'latest handshake:' /tmp/wg_status.txt | sed 's/.*latest handshake: //')"
-    RX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*transfer: //; s/ received,.*//')"
-    TX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*, //; s/ sent//')"
-    ENDPOINT="$(grep 'endpoint:' /tmp/wg_status.txt | sed 's/.*endpoint: //')"
-
-    # Build JSON status
-    STATUS_JSON="$(cat <<EOF
-{
-  "connected": true,
-  "endpoint": "${ENDPOINT}",
-  "latest_handshake": "${LATEST_HANDSHAKE}",
-  "rx": "${RX}",
-  "tx": "${TX}"
-}
-EOF
-)"
-
-    # Write JSON atomically; don't crash if writing fails
-    printf '%s\n' "$STATUS_JSON" > "${STATUS_FILE}.tmp" 2>/dev/null \
-      && mv "${STATUS_FILE}.tmp" "${STATUS_FILE}" 2>/dev/null \
-      || echo "[WARN] Could not write WireGuard status file at ${STATUS_FILE}"
-  else
-    echo "[WARN] Could not read WireGuard status (wg show failed)"
+  bashio::log.info "WireGuard status:"
+  if ! wg show "${WG_INTERFACE}"; then
+    bashio::log.warning "wg show ${WG_INTERFACE} failed"
   fi
-
   sleep 30
-done &
+done
