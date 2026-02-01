@@ -31,13 +31,12 @@ if [ -z "$PERSISTENT_KEEPALIVE" ] || [ "$PERSISTENT_KEEPALIVE" = "null" ]; then
   PERSISTENT_KEEPALIVE="25"
 fi
 
-# --- WireGuard-Konfiguration schreiben (ohne DNS, ohne Table etc.) ---
+# --- WireGuard-Konfiguration schreiben (ohne Address/DNS/Table) ---
 bashio::log.info "Generating WireGuard config at ${WG_CONF}"
 
 {
   echo "[Interface]"
   echo "PrivateKey = ${PRIVATE_KEY}"
-  echo "Address = ${ADDRESS}"
   echo ""
   echo "[Peer]"
   if [ -n "$PRESHARED_KEY" ]; then
@@ -59,7 +58,7 @@ if ip link show "${WG_INTERFACE}" >/dev/null 2>&1; then
   ip link delete dev "${WG_INTERFACE}" 2>/dev/null || true
 fi
 
-# --- WireGuard Interface MANUELL hochfahren (ohne wg-quick) ---
+# --- WireGuard Interface MANUELL hochfahren ---
 bashio::log.info "Creating WireGuard interface: ${WG_INTERFACE}"
 ip link add dev "${WG_INTERFACE}" type wireguard
 
