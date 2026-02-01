@@ -114,14 +114,51 @@ RESOLV
   fi
 fi
 
-# --- Status-Loop: alle 30s Status loggen ---
-(
-  while true; do
-    bashio::log.info "WireGuard status:"
-    wg show client || bashio::log.warning "wg show client failed"
-    sleep 30
-  done
-) &
+# --- Status-Loop: alle 30s in Log + JSON schreiben ---
+STATUS_FILE="/config/wireguard_client_status.json"
 
-# Container am Leben halten
-tail -f /dev/null
+bashio::log.info "Starting WireGuard status monitor ..."
+
+while true; do
+  if wg show client > /tmp/wg_status.txt 2>/dev/null; then
+    bashio::log.info "WireGuard status:"
+    cat /tmp/wg_status.txt
+
+    # Werte aus dem wg-Output ziehen
+    endpoint=$(awk '/endpoint:/ {print $2}' /tmp/wg_status.txt | head -n1)
+    latest_handshake=$(awk '/latest handshake:/ {print $3, $4, $5, $6}' /tmp/wg_status.txt | head -n1)
+    transfer_rx=$(awk '/transfer:/ {print $2" "$3}' /tmp/wg_status.txt | head -n1)
+    transfer_tx=$(awk '/transfer:/ {print $5" "$6}' /tmp/wg_status.txt | head -n1)
+
+    # Sehr einfache "connected"-Logik: wenn irgendein Handshake-Text da ist → connected
+    if [ -n "$latest_handshake" ]; then
+      connected=true
+    else
+      connected=false
+    fi
+
+    cat <<EOF > "${STATUS_FILE}"
+{
+  "connected": ${connected},
+  "endpoint": "$(echo "$endpoint")",
+  "latest_handshake": "$(echo "$latest_handshake")",
+  "transfer_rx": "$(echo "$transfer_rx")",
+  "transfer_tx": "$(echo "$transfer_tx")"
+}
+EOF
+
+  else
+    bashio::log.warning "Failed to read WireGuard status (wg show client)"
+    cat <<EOF > "${STATUS_FILE}"
+{
+  "connected": false,
+  "endpoint": "",
+  "latest_handshake": "",
+  "transfer_rx": "",
+  "transfer_tx": ""
+}
+EOF
+  fi
+
+  sleep 30
+done
