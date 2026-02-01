@@ -7,7 +7,7 @@ ARG BUILD_VERSION
 # WireGuard-Tools installieren
 RUN apk add --no-cache \
     wireguard-tools \
-    iproute2
+    iproute2-minimal
 
 # rootfs in Container kopieren
 COPY rootfs /
