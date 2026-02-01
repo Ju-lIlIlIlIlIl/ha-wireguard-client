@@ -108,7 +108,7 @@ fi
 bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
 
 # --- Status-Datei vorbereiten ---
-mkdir -p /config || true
+mkdir -p /config
 if [ ! -f "${STATUS_FILE}" ]; then
   echo '{"state":"starting","latest_handshake":null,"rx":null,"tx":null,"updated_at":null}' > "${STATUS_FILE}" || true
 fi
