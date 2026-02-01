@@ -57,25 +57,15 @@ bashio::log.info "Resulting WireGuard config (for debugging):"
 sed 's/^\(PrivateKey = \).*/\1****/; s/^\(PresharedKey = \).*/\1****/' "${WG_CONF}" \
   || bashio::log.warning "Unable to print redacted config"
 
-# --- Interface vorbereiten / neu erstellen ---
+# --- Interface vorbereiten ---
 if ip link show "${WG_INTERFACE}" >/dev/null 2>&1; then
   bashio::log.warning "Interface '${WG_INTERFACE}' already exists – deleting it first"
-  ip link delete dev "${WG_INTERFACE}" || true
+  wg-quick down "${WG_INTERFACE}" || true
 fi
 
-bashio::log.info "Creating WireGuard interface: ${WG_INTERFACE}"
-ip link add dev "${WG_INTERFACE}" type wireguard
-
-bashio::log.info "Applying WireGuard configuration using wg setconf"
-wg setconf "${WG_INTERFACE}" "${WG_CONF}"
-
-bashio::log.info "Configuring IP address ${ADDRESS} on ${WG_INTERFACE}"
-ip -4 address add "${ADDRESS}" dev "${WG_INTERFACE}"
-
-bashio::log.info "Bringing interface up"
-ip link set mtu 1420 up dev "${WG_INTERFACE}"
-
-bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
+# --- WireGuard Interface hochfahren ---
+bashio::log.info "Bringing up WireGuard interface: ${WG_INTERFACE}"
+wg-quick up "${WG_INTERFACE}"
 
 # --- DNS via resolvconf setzen (optional, Fehler nur loggen) ---
 if command -v resolvconf >/dev/null 2>&1 && [ -n "${DNS}" ]; then
@@ -85,10 +75,9 @@ if command -v resolvconf >/dev/null 2>&1 && [ -n "${DNS}" ]; then
 fi
 
 # --- Status-Datei vorbereiten ---
-# /config ist bereits ein existierender Mount → kein mkdir -p auf Unterordnern nötig
 if [ ! -f "${STATUS_FILE}" ]; then
   bashio::log.info "Creating initial status file at ${STATUS_FILE}"
-  echo '{"state":"starting","latest_handshake":null,"rx":null,"tx":null,"updated_at":null}' > "${STATUS_FILE}"
+  echo '{"state":"starting","latest_handshake":null,"rx":null,"tx":null,"updated_at":null}' > "${STATUS_FILE}" || true
 fi
 
 # --- Funktion: Status in JSON-Datei schreiben ---
@@ -97,7 +86,7 @@ update_status_json() {
   status="$(wg show "${WG_INTERFACE}" 2>/dev/null || true)"
 
   if [ -z "$status" ]; then
-    cat > "${STATUS_FILE}" <<EOF
+    cat > "${STATUS_FILE}" <<EOF || true
 {
   "state": "disconnected",
   "latest_handshake": null,
@@ -117,7 +106,7 @@ EOF
   rx="$(printf '%s\n' "$transfer_line" | awk '{print $1 " " $2}')"
   tx="$(printf '%s\n' "$transfer_line" | awk '{print $4 " " $5}')"
 
-  cat > "${STATUS_FILE}" <<EOF
+  cat > "${STATUS_FILE}" <<EOF || true
 {
   "state": "connected",
   "latest_handshake": "${latest}",
