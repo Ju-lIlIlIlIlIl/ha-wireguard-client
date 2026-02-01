@@ -124,8 +124,9 @@ and writes status information to:
   "rx": "715 KiB",
   "tx": "7.4 MiB"
 }
-
+```
 Example sensors
+```ini
 sensor:
   - platform: command_line
     name: WireGuard Client Status
