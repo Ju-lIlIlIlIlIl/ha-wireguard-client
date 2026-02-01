@@ -73,81 +73,109 @@ wg_config: |
   PublicKey = ...
   Endpoint = ...
 Then Save and Start the add-on.
+```
+| Option          | Description                       |
+| --------------- | --------------------------------- |
+| `private_key`   | Client private key (hidden input) |
+| `address`       | WireGuard client address          |
+| `dns`           | Optional DNS server               |
+| `public_key`    | Server public key                 |
+| `preshared_key` | Optional preshared key            |
+| `endpoint`      | Server address and port           |
+| `allowed_ips`   | Routed networks                   |
 
-📊 Connection Status & Logs
+## Usage
+1. Save the configuration
+2. Start the add-on
+3. Open the Logs tab
+
+Successful startup example:
+```ini
+[INFO] WireGuard client started
+[INFO] Latest handshake: 10 seconds ago
+[INFO] RX: 715 KiB | TX: 7.4 MiB
+```
+
+If handshakes and traffic are visible, the tunnel is active.
+
+## 📊 Connection Status & Home Assistant Sensors
 The add-on continuously logs the WireGuard status.
+and writes status information to:
+```ini
+/config/wireguard_client_status.json
+```
 
-Example log output:
+# Example:
+```ini
+{
+  "connected": true,
+  "endpoint": "158.180.23.24:51820",
+  "latest_handshake": "10 seconds ago",
+  "rx": "715 KiB",
+  "tx": "7.4 MiB"
+}
 
-[INFO] WireGuard status:
-peer: SpMSY1vwHVVeodmmuVM8p8XYOd/SRkxqTsongkfUBEY=
-  endpoint: 158.180.23.24:51820
-  latest handshake: 10 seconds ago
-  transfer: 715.79 KiB received, 7.49 MiB sent
-How to interpret this:
-latest handshake → last successful connection to the server
+Example sensors
+sensor:
+  - platform: command_line
+    name: WireGuard Client Status
+    command: cat /config/wireguard_client_status.json
+    value_template: >
+      {{ 'online' if (value | from_json).connected else 'offline' }}
+    scan_interval: 30
 
-If the handshake updates regularly → connection is active
+  - platform: command_line
+    name: WireGuard Client Last Handshake
+    command: cat /config/wireguard_client_status.json
+    value_template: >
+      {{ (value | from_json).latest_handshake }}
+    scan_interval: 30
+```
 
-No handshake → tunnel is down
+# ➡️ Logs are the authoritative source of truth for WireGuard state.
 
-➡️ Logs are the authoritative source of truth for WireGuard state.
-
-🔎 Verification
+## 🔎 Verification
 From the WireGuard server:
 
 wg show
 You should see the Home Assistant peer connected.
 
-You can now:
+# You can now:
 
-Access Home Assistant remotely
+- Access Home Assistant remotely
+- Reach HA services via VPN IP
+- Perform maintenance without router VPNs
 
-Reach HA services via VPN IP
-
-Perform maintenance without router VPNs
-
-🔁 Updates
+## 🔁 Updates
 When a new version is released:
 
 Open the add-on page
-
 Click Update
-
 Restart the add-on
 
-⚠️ Notes
+## ⚠️ Notes
 This add-on runs WireGuard client only
 
 Routing depends on AllowedIPs
-
 Make sure VPN IP ranges do not overlap
-
 WireGuard kernel support is already included in HA OS
 
-🛠 Roadmap
+## 🛠 Roadmap
 Planned / possible improvements:
 
-📊 WireGuard status sensors inside Home Assistant
+- 📊 WireGuard status sensors inside Home Assistant
+- 🔔 Notifications on disconnect
+- 🔄 Connection watchdog
 
-🔔 Notifications on disconnect
-
-🔄 Connection watchdog
-
-📂 File upload for .conf (UI limitation dependent)
-
-🧑‍💼 Why this Add-on?
+## 🧑‍💼 Why this Add-on?
 Most WireGuard solutions assume Home Assistant is the server.
 
 This add-on solves the real-world problem of making Home Assistant a managed VPN client for:
 
-customer installations
-
-MSP / integrator workflows
-
-remote diagnostics
-
-secure access without touching customer routers
+- customer installations
+- MSP / integrator workflows
+- remote diagnostics
+- secure access without touching customer routers
 
 License: MIT
 Status: Experimental
