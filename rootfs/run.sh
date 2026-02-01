@@ -115,50 +115,39 @@ RESOLV
 fi
 
 # --- Status-Loop: alle 30s in Log + JSON schreiben ---
-STATUS_FILE="/config/wireguard_client_status.json"
+STATUS_FILE="/data/wireguard_client_status.json"
 
-bashio::log.info "Starting WireGuard status monitor ..."
+# Make sure directory exists (it does on HA, but be safe)
+mkdir -p "$(dirname "$STATUS_FILE")"
 
+echo "[INFO] Starting WireGuard status monitor ..."
 while true; do
+  # Read wg status; if wg fails, don't crash the add-on
   if wg show client > /tmp/wg_status.txt 2>/dev/null; then
-    bashio::log.info "WireGuard status:"
-    cat /tmp/wg_status.txt
+    LATEST_HANDSHAKE="$(grep 'latest handshake:' /tmp/wg_status.txt | sed 's/.*latest handshake: //')"
+    RX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*transfer: //; s/ received,.*//')"
+    TX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*, //; s/ sent//')"
+    ENDPOINT="$(grep 'endpoint:' /tmp/wg_status.txt | sed 's/.*endpoint: //')"
 
-    # Werte aus dem wg-Output ziehen
-    endpoint=$(awk '/endpoint:/ {print $2}' /tmp/wg_status.txt | head -n1)
-    latest_handshake=$(awk '/latest handshake:/ {print $3, $4, $5, $6}' /tmp/wg_status.txt | head -n1)
-    transfer_rx=$(awk '/transfer:/ {print $2" "$3}' /tmp/wg_status.txt | head -n1)
-    transfer_tx=$(awk '/transfer:/ {print $5" "$6}' /tmp/wg_status.txt | head -n1)
-
-    # Sehr einfache "connected"-Logik: wenn irgendein Handshake-Text da ist → connected
-    if [ -n "$latest_handshake" ]; then
-      connected=true
-    else
-      connected=false
-    fi
-
-    cat <<EOF > "${STATUS_FILE}"
+    # Build JSON status
+    STATUS_JSON="$(cat <<EOF
 {
-  "connected": ${connected},
-  "endpoint": "$(echo "$endpoint")",
-  "latest_handshake": "$(echo "$latest_handshake")",
-  "transfer_rx": "$(echo "$transfer_rx")",
-  "transfer_tx": "$(echo "$transfer_tx")"
+  "connected": true,
+  "endpoint": "${ENDPOINT}",
+  "latest_handshake": "${LATEST_HANDSHAKE}",
+  "rx": "${RX}",
+  "tx": "${TX}"
 }
 EOF
+)"
 
+    # Write JSON atomically; don't crash if writing fails
+    printf '%s\n' "$STATUS_JSON" > "${STATUS_FILE}.tmp" 2>/dev/null \
+      && mv "${STATUS_FILE}.tmp" "${STATUS_FILE}" 2>/dev/null \
+      || echo "[WARN] Could not write WireGuard status file at ${STATUS_FILE}"
   else
-    bashio::log.warning "Failed to read WireGuard status (wg show client)"
-    cat <<EOF > "${STATUS_FILE}"
-{
-  "connected": false,
-  "endpoint": "",
-  "latest_handshake": "",
-  "transfer_rx": "",
-  "transfer_tx": ""
-}
-EOF
+    echo "[WARN] Could not read WireGuard status (wg show failed)"
   fi
 
   sleep 30
-done
+done &
