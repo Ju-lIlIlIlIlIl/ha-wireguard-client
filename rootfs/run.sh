@@ -4,7 +4,7 @@ set -e
 WG_INTERFACE="client"
 WG_CONF="/etc/wireguard/client.conf"        # Vollständige Config zur Kontrolle/Debug
 WG_RUNTIME_CONF="/tmp/wg_client_runtime.conf"  # Minimal-Config nur für wg setconf
-STATUS_FILE="/data/wireguard_client_status.json"
+STATUS_FILE="/config/wireguard_client_status.json"
 
 bashio::log.info "Starting WireGuard Client add-on"
 
@@ -108,7 +108,7 @@ fi
 bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
 
 # --- Status-Datei vorbereiten ---
-mkdir -p /data || true
+mkdir -p /config || true
 if [ ! -f "${STATUS_FILE}" ]; then
   echo '{"state":"starting","latest_handshake":null,"rx":null,"tx":null,"updated_at":null}' > "${STATUS_FILE}" || true
 fi

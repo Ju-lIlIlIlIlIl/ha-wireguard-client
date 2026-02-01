@@ -1,6 +1,6 @@
 name: WireGuard Client
 slug: wireguard_client
-version: 0.0.12
+version: 0.0.13
 description: Simple WireGuard client that connects Home Assistant to a remote WireGuard server.
 arch:
   - amd64
