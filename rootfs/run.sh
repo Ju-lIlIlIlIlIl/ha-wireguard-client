@@ -9,7 +9,7 @@ bashio::log.info "Starting WireGuard Client add-on"
 
 # --- Optionen aus /data/options.json lesen ---
 PRIVATE_KEY=$(bashio::config 'private_key')
-ADDRESS=$(bashio::config 'address')
+ADDRESS=$(bashio::config 'address')          # z.B. 10.8.0.4/24
 PUBLIC_KEY=$(bashio::config 'public_key')
 PRESHARED_KEY=$(bashio::config 'preshared_key')
 ENDPOINT=$(bashio::config 'endpoint')
@@ -31,7 +31,7 @@ if [ -z "$PERSISTENT_KEEPALIVE" ] || [ "$PERSISTENT_KEEPALIVE" = "null" ]; then
   PERSISTENT_KEEPALIVE="25"
 fi
 
-# --- WireGuard config schreiben (ohne DNS!) ---
+# --- WireGuard-Konfiguration schreiben (ohne DNS, ohne Table etc.) ---
 bashio::log.info "Generating WireGuard config at ${WG_CONF}"
 
 {
@@ -56,20 +56,39 @@ sed 's/^\(PrivateKey = \).*/\1****/; s/^\(PresharedKey = \).*/\1****/' "${WG_CON
 # --- Interface ggf. aufräumen ---
 if ip link show "${WG_INTERFACE}" >/dev/null 2>&1; then
   bashio::log.warning "Interface '${WG_INTERFACE}' already exists – deleting it first"
-  wg-quick down "${WG_INTERFACE}" || true
+  ip link delete dev "${WG_INTERFACE}" 2>/dev/null || true
 fi
 
-# --- WireGuard Interface hochfahren ---
-bashio::log.info "Bringing up WireGuard interface: ${WG_INTERFACE}"
-wg-quick up "${WG_INTERFACE}"
+# --- WireGuard Interface MANUELL hochfahren (ohne wg-quick) ---
+bashio::log.info "Creating WireGuard interface: ${WG_INTERFACE}"
+ip link add dev "${WG_INTERFACE}" type wireguard
+
+bashio::log.info "Applying WireGuard configuration using wg setconf"
+wg setconf "${WG_INTERFACE}" "${WG_CONF}"
+
+bashio::log.info "Configuring IP address ${ADDRESS} on ${WG_INTERFACE}"
+ip -4 address add "${ADDRESS}" dev "${WG_INTERFACE}"
+
+bashio::log.info "Bringing interface ${WG_INTERFACE} up (mtu 1420)"
+ip link set mtu 1420 up dev "${WG_INTERFACE}"
+
+bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
 
 # --- Status-Datei vorbereiten ---
 if [ ! -f "${STATUS_FILE}" ]; then
   bashio::log.info "Creating initial status file at ${STATUS_FILE}"
-  echo '{"state":"starting","latest_handshake":null,"rx":null,"tx":null,"updated_at":null}' > "${STATUS_FILE}" || true
+  cat > "${STATUS_FILE}" <<EOF || true
+{
+  "state": "starting",
+  "latest_handshake": null,
+  "rx": null,
+  "tx": null,
+  "updated_at": null
+}
+EOF
 fi
 
-# --- Status in JSON schreiben ---
+# --- Funktion: Status in JSON schreiben ---
 update_status_json() {
   local status
   status="$(wg show "${WG_INTERFACE}" 2>/dev/null || true)"
