@@ -112,7 +112,7 @@ If handshakes and traffic are visible, the tunnel is active.
 The add-on continuously logs the WireGuard status.
 and writes status information to:
 ```ini
-/config/wireguard_client_status.json
+/data/wireguard_client_status.json
 ```
 
 # Example:
@@ -152,7 +152,7 @@ wg show
 ```
 You should see the Home Assistant peer connected.
 
-# You can now:
+## You can now:
 
 - Access Home Assistant remotely
 - Reach HA services via VPN IP
