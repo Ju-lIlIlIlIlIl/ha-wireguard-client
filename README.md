@@ -147,9 +147,9 @@ sensor:
 
 ## 🔎 Verification
 From the WireGuard server:
-
+```ini
 wg show
-
+```
 You should see the Home Assistant peer connected.
 
 # You can now:
