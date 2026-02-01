@@ -67,17 +67,19 @@ Add-on Options
 Paste the entire configuration into the add-on option:
 
 <img width="1092" height="760" alt="image" src="https://github.com/user-attachments/assets/c1e82f05-ab21-45f7-9168-e61be8887bd5" />
-
-wg_config: |
-  [Interface]
-  PrivateKey = ...
-  Address = ...
-
-  [Peer]
-  PublicKey = ...
-  Endpoint = ...
-Then Save and Start the add-on.
+or edit in YAMEL
+```ini
+private_key: ""
+address: ""
+dns: ""
+public_key: ""
+preshared_key: ""
+endpoint: ""
+allowed_ips: ""
+config_content: ""
 ```
+Then Save and Start the add-on.
+
 | Option          | Description                       |
 | --------------- | --------------------------------- |
 | `private_key`   | Client private key (hidden input) |
