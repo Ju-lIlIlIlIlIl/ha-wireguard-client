@@ -2,137 +2,152 @@
 set -e
 
 WG_CONF="/etc/wireguard/client.conf"
-WG_INTERFACE="client"
-STATUS_FILE="/config/wireguard_client_status.json"
+WG_CONF_WG="/etc/wireguard/client.wg"
 
 bashio::log.info "Starting WireGuard Client add-on"
 
 # --- Optionen aus /data/options.json lesen ---
 PRIVATE_KEY=$(bashio::config 'private_key')
-ADDRESS=$(bashio::config 'address')          # z.B. 10.8.0.4/24
+ADDRESS=$(bashio::config 'address')
+DNS=$(bashio::config 'dns')
 PUBLIC_KEY=$(bashio::config 'public_key')
 PRESHARED_KEY=$(bashio::config 'preshared_key')
 ENDPOINT=$(bashio::config 'endpoint')
 ALLOWED_IPS=$(bashio::config 'allowed_ips')
-PERSISTENT_KEEPALIVE="$(jq -r '.persistent_keepalive // empty' /data/options.json)"
 
-# --- Konfig prüfen ---
-if [ -z "$PRIVATE_KEY" ] || [ -z "$ADDRESS" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$ENDPOINT" ]; then
-  bashio::log.fatal "private_key, address, public_key and endpoint must be set!"
+# --- Pflichtfelder prüfen ---
+if [ -z "$PRIVATE_KEY" ] || [ "$PRIVATE_KEY" = "null" ]; then
+  bashio::log.error "private_key is empty or null – please configure the add-on!"
   exit 1
 fi
 
-if [ -z "$ALLOWED_IPS" ]; then
-  bashio::log.warning "allowed_ips is empty – using default 0.0.0.0/0"
-  ALLOWED_IPS="0.0.0.0/0"
+if [ -z "$ADDRESS" ] || [ "$ADDRESS" = "null" ]; then
+  bashio::log.error "address is empty or null – please configure the add-on!"
+  exit 1
 fi
 
-if [ -z "$PERSISTENT_KEEPALIVE" ] || [ "$PERSISTENT_KEEPALIVE" = "null" ]; then
-  PERSISTENT_KEEPALIVE="25"
+if [ -z "$PUBLIC_KEY" ] || [ "$PUBLIC_KEY" = "null" ]; then
+  bashio::log.error "public_key is empty or null – please configure the add-on!"
+  exit 1
 fi
 
-# --- WireGuard-Konfiguration schreiben (ohne Address/DNS/Table) ---
+if [ -z "$ENDPOINT" ] || [ "$ENDPOINT" = "null" ]; then
+  bashio::log.error "endpoint is empty or null – please configure the add-on!"
+  exit 1
+fi
+
+# Default für AllowedIPs
+if [ -z "$ALLOWED_IPS" ] || [ "$ALLOWED_IPS" = "null" ]; then
+  ALLOWED_IPS="0.0.0.0/0,::/0"
+fi
+
 bashio::log.info "Generating WireGuard config at ${WG_CONF}"
 
-{
-  echo "[Interface]"
-  echo "PrivateKey = ${PRIVATE_KEY}"
-  echo ""
-  echo "[Peer]"
-  if [ -n "$PRESHARED_KEY" ]; then
-    echo "PresharedKey = ${PRESHARED_KEY}"
-  fi
-  echo "PublicKey = ${PUBLIC_KEY}"
-  echo "AllowedIPs = ${ALLOWED_IPS}"
-  echo "Endpoint = ${ENDPOINT}"
-  echo "PersistentKeepalive = ${PERSISTENT_KEEPALIVE}"
-} > "${WG_CONF}"
+# --- Volle Config (wg-quick-Style) für Logging / Debug ---
+cat > "${WG_CONF}" <<EOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+Address = ${ADDRESS}
+EOF
+
+# DNS nur, wenn gesetzt
+if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
+  echo "DNS = ${DNS}" >> "${WG_CONF}"
+fi
+
+cat >> "${WG_CONF}" <<EOF
+
+[Peer]
+PublicKey = ${PUBLIC_KEY}
+AllowedIPs = ${ALLOWED_IPS}
+Endpoint = ${ENDPOINT}
+PersistentKeepalive = 25
+EOF
+
+# PresharedKey nur, wenn gesetzt
+if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
+  sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF}"
+fi
 
 bashio::log.info "Resulting WireGuard config (for debugging):"
-sed 's/^\(PrivateKey = \).*/\1****/; s/^\(PresharedKey = \).*/\1****/' "${WG_CONF}" \
-  || bashio::log.warning "Unable to print redacted config"
+sed 's/PrivateKey = .*/PrivateKey = ****/; s/PresharedKey = .*/PresharedKey = ****/' "${WG_CONF}"
 
-# --- Interface ggf. aufräumen ---
-if ip link show "${WG_INTERFACE}" >/dev/null 2>&1; then
-  bashio::log.warning "Interface '${WG_INTERFACE}' already exists – deleting it first"
-  ip link delete dev "${WG_INTERFACE}" 2>/dev/null || true
+# --- Gestripte Config NUR für wg setconf (ohne Address/DNS) ---
+cat > "${WG_CONF_WG}" <<EOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+
+[Peer]
+PublicKey = ${PUBLIC_KEY}
+AllowedIPs = ${ALLOWED_IPS}
+Endpoint = ${ENDPOINT}
+PersistentKeepalive = 25
+EOF
+
+if [ -n "${PRESHARED_KEY}" ] && [ "${PRESHARED_KEY}" != "null" ]; then
+  sed -i "/\[Peer\]/a PresharedKey = ${PRESHARED_KEY}" "${WG_CONF_WG}"
 fi
 
-# --- WireGuard Interface MANUELL hochfahren ---
-bashio::log.info "Creating WireGuard interface: ${WG_INTERFACE}"
-ip link add dev "${WG_INTERFACE}" type wireguard
+bashio::log.info "Bringing up WireGuard interface: client"
 
-bashio::log.info "Applying WireGuard configuration using wg setconf"
-wg setconf "${WG_INTERFACE}" "${WG_CONF}"
-
-bashio::log.info "Configuring IP address ${ADDRESS} on ${WG_INTERFACE}"
-ip -4 address add "${ADDRESS}" dev "${WG_INTERFACE}"
-
-bashio::log.info "Bringing interface ${WG_INTERFACE} up (mtu 1420)"
-ip link set mtu 1420 up dev "${WG_INTERFACE}"
-
-bashio::log.info "WireGuard interface '${WG_INTERFACE}' is up"
-
-# --- Status-Datei vorbereiten ---
-if [ ! -f "${STATUS_FILE}" ]; then
-  bashio::log.info "Creating initial status file at ${STATUS_FILE}"
-  cat > "${STATUS_FILE}" <<EOF || true
-{
-  "state": "starting",
-  "latest_handshake": null,
-  "rx": null,
-  "tx": null,
-  "updated_at": null
-}
-EOF
+# Falls Interface noch existiert → wegräumen
+if ip link show client >/dev/null 2>&1; then
+  bashio::log.warning "Interface 'client' already exists – deleting it first"
+  ip link delete dev client || true
 fi
 
-# --- Funktion: Status in JSON schreiben ---
-update_status_json() {
-  local status
-  status="$(wg show "${WG_INTERFACE}" 2>/dev/null || true)"
+# Interface anlegen & Konfig anwenden
+ip link add dev client type wireguard
+wg setconf client "${WG_CONF_WG}"
 
-  if [ -z "$status" ]; then
-    cat > "${STATUS_FILE}" <<EOF || true
+# IP-Adresse setzen (das ist der Teil, den wg-quick sonst machen würde)
+ip -4 address add "${ADDRESS}" dev client
+ip link set mtu 1420 up dev client
+
+# DNS über resolvconf (wenn gesetzt) – Fehler nur loggen, nicht abbrechen
+if [ -n "${DNS}" ] && [ "${DNS}" != "null" ]; then
+  if ! resolvconf -a client -m 0 -x <<RESOLV
+nameserver ${DNS}
+RESOLV
+  then
+    bashio::log.warning "Failed to update resolvconf for client interface"
+  fi
+fi
+
+# --- Status-Loop: alle 30s in Log + JSON schreiben ---
+STATUS_FILE="/data/wireguard_client_status.json"
+
+# Make sure directory exists (it does on HA, but be safe)
+mkdir -p "$(dirname "$STATUS_FILE")"
+
+echo "[INFO] Starting WireGuard status monitor ..."
+while true; do
+  # Read wg status; if wg fails, don't crash the add-on
+  if wg show client > /tmp/wg_status.txt 2>/dev/null; then
+    LATEST_HANDSHAKE="$(grep 'latest handshake:' /tmp/wg_status.txt | sed 's/.*latest handshake: //')"
+    RX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*transfer: //; s/ received,.*//')"
+    TX="$(grep 'transfer:' /tmp/wg_status.txt | sed 's/.*, //; s/ sent//')"
+    ENDPOINT="$(grep 'endpoint:' /tmp/wg_status.txt | sed 's/.*endpoint: //')"
+
+    # Build JSON status
+    STATUS_JSON="$(cat <<EOF
 {
-  "state": "disconnected",
-  "latest_handshake": null,
-  "rx": null,
-  "tx": null,
-  "updated_at": "$(date -Iseconds)"
+  "connected": true,
+  "endpoint": "${ENDPOINT}",
+  "latest_handshake": "${LATEST_HANDSHAKE}",
+  "rx": "${RX}",
+  "tx": "${TX}"
 }
 EOF
-    return
+)"
+
+    # Write JSON atomically; don't crash if writing fails
+    printf '%s\n' "$STATUS_JSON" > "${STATUS_FILE}.tmp" 2>/dev/null \
+      && mv "${STATUS_FILE}.tmp" "${STATUS_FILE}" 2>/dev/null \
+      || echo "[WARN] Could not write WireGuard status file at ${STATUS_FILE}"
+  else
+    echo "[WARN] Could not read WireGuard status (wg show failed)"
   fi
 
-  local latest
-  latest="$(printf '%s\n' "$status" | awk '/latest handshake:/ { $1=""; $2=""; sub(/^ /,""); print }')"
-
-  local transfer_line rx tx
-  transfer_line="$(printf '%s\n' "$status" | awk '/transfer:/ { $1=""; sub(/^ /,""); print }')"
-  rx="$(printf '%s\n' "$transfer_line" | awk '{print $1 " " $2}')"
-  tx="$(printf '%s\n' "$transfer_line" | awk '{print $4 " " $5}')"
-
-  cat > "${STATUS_FILE}" <<EOF || true
-{
-  "state": "connected",
-  "latest_handshake": "${latest}",
-  "rx": "${rx}",
-  "tx": "${tx}",
-  "updated_at": "$(date -Iseconds)"
-}
-EOF
-}
-
-# --- Status-Loop ---
-(
-  while true; do
-    bashio::log.info "WireGuard status:"
-    wg show "${WG_INTERFACE}" || bashio::log.warning "wg show ${WG_INTERFACE} failed"
-    update_status_json
-    sleep 30
-  done
-) &
-
-# Container am Leben halten
-tail -f /dev/null
+  sleep 30
+done &

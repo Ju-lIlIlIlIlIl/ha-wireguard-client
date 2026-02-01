@@ -1,6 +1,6 @@
 name: WireGuard Client
 slug: wireguard_client
-version: 0.0.16
+version: 0.0.9
 description: Simple WireGuard client that connects Home Assistant to a remote WireGuard server.
 arch:
   - amd64
@@ -24,10 +24,9 @@ options:
   dns: ""
   public_key: ""
   preshared_key: ""
+  endpoint: ""
   allowed_ips: ""
   config_content: ""
-  persistent_keepalive: 25
-  endpoint: ""
 
 schema:
   private_key: password
@@ -35,6 +34,5 @@ schema:
   dns: str?
   public_key: str
   preshared_key: password?
-  allowed_ips: str?
-  persistent_keepalive: int?
   endpoint: str
+  allowed_ips: str?
