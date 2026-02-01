@@ -67,7 +67,9 @@ Add-on Options
 Paste the entire configuration into the add-on option:
 
 <img width="1092" height="760" alt="image" src="https://github.com/user-attachments/assets/c1e82f05-ab21-45f7-9168-e61be8887bd5" />
+
 or edit in YAMEL
+
 ```ini
 private_key: ""
 address: ""
@@ -78,6 +80,7 @@ endpoint: ""
 allowed_ips: ""
 config_content: ""
 ```
+
 Then Save and Start the add-on.
 
 | Option          | Description                       |
